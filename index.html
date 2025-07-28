@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RGI SERVICES</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+      color: #333;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #007BFF;
+    }
+    h2 {
+      margin-top: -10px;
+      font-weight: normal;
+    }
+    .top-bar {
+      text-align: center;
+      margin: 10px 0 20px;
+    }
+    .top-bar select, .top-bar button {
+      padding: 8px;
+      margin: 0 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    form, table {
+      margin: 20px auto;
+      max-width: 850px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+    table th {
+      background: #007BFF;
+      color: #fff;
+    }
+    input, button {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: calc(100% - 20px);
+      font-size: 15px;
+    }
+    input[type="datetime-local"] {
+      background: #e9f5ff;
+      border: 1px solid #007BFF;
+      color: #333;
+    }
+    button {
+      background: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #218838;
+    }
+    .archives-btn {
+      background: #6c757d;
+    }
+    .archives-btn:hover {
+      background: #5a6268;
+    }
+    .signature-box {
+      border: 2px dashed #007BFF;
+      height: 80px;
+      background: #fafafa;
+      cursor: crosshair;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="title">ÉMARGEMENT | RGI SERVICES</h1>
+  <h2 id="moisAffiche"></h2>
+
+  <!-- Barre langue + mois -->
+  <div class="top-bar">
+    <select id="langSelect" onchange="changerLangue()">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+    </select>
+    <select id="selectMois"></select>
+    <select id="selectAnnee"></select>
+    <button id="btnChange" onclick="changerMois()">Changer</button>
+  </div>
+
+  <form id="presenceForm">
+    <input type="text" id="nom" placeholder="Nom" required>
+    <input type="text" id="prenom" placeholder="Prénom" required>
+    <label id="labelEntree">Date d'entrée :</label>
+    <input type="datetime-local" id="dateEntree" required>
+    <label id="labelSortie">Date de sortie :</label>
+    <input type="datetime-local" id="dateSortie" required>
+    <label id="labelSignature">Signature :</label>
+    <canvas id="signaturePad" class="signature-box"></canvas>
+    <button type="button" onclick="effacerSignature()">Effacer Signature</button>
+    <button type="button" id="btnAdd" onclick="ajouterLigne()">Ajouter</button>
+  </form>
+
+  <table id="presenceTable">
+    <thead>
+      <tr>
+        <th id="thNom">Nom</th>
+        <th id="thPrenom">Prénom</th>
+        <th id="thEntree">Date d'entrée</th>
+        <th id="thSortie">Date de sortie</th>
+        <th id="thSignature">Signature</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button id="btnPDF" onclick="telechargerPDF()">Télécharger en PDF</button>
+  <button class="archives-btn" id="btnArchives" onclick="telechargerArchives()">📦 Voir les Archives</button>
+
+  <script>
+    const tableBody = document.querySelector("#presenceTable tbody");
+    const signaturePad = document.getElementById("signaturePad");
+    const ctx = signaturePad.getContext("2d");
+    let drawing = false;
+    let currentKey = "";
+    let currentLang = "fr";
+
+    const moisNoms = {
+      fr: ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+           "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"],
+      en: ["January", "February", "March", "April", "May", "June",
+           "July", "August", "September", "October", "November", "December"]
+    };
+
+    const texts = {
+      fr: {
+        title: "Liste de Présence - RGI SERVICES",
+        change: "Changer",
+        add: "Ajouter",
+        pdf: "Télécharger en PDF",
+        archives: "📦 Voir les Archives",
+        nom: "Nom",
+        prenom: "Prénom",
+        entree: "Date d'entrée",
+        sortie: "Date de sortie",
+        signature: "Signature",
+        mois: "Mois : "
+      },
+      en: {
+        title: "Attendance List - RGI SERVICES",
+        change: "Change",
+        add: "Add",
+        pdf: "Download PDF",
+        archives: "📦 View Archives",
+        nom: "Last Name",
+        prenom: "First Name",
+        entree: "Check-in Date",
+        sortie: "Check-out Date",
+        signature: "Signature",
+        mois: "Month: "
+      }
+    };
+
+    function changerLangue() {
+      currentLang = document.getElementById("langSelect").value;
+      document.getElementById("btnChange").innerText = texts[currentLang].change;
+      document.getElementById("btnAdd").innerText = texts[currentLang].add;
+      document.getElementById("btnPDF").innerText = texts[currentLang].pdf;
+      document.getElementById("btnArchives").innerText = texts[currentLang].archives;
+      document.getElementById("thNom").innerText = texts[currentLang].nom;
+      document.getElementById("thPrenom").innerText = texts[currentLang].prenom;
+      document.getElementById("thEntree").innerText = texts[currentLang].entree;
+      document.getElementById("thSortie").innerText = texts[currentLang].sortie;
+      document.getElementById("thSignature").innerText = texts[currentLang].signature;
+      document.getElementById("labelEntree").innerText = texts[currentLang].entree + " :";
+      document.getElementById("labelSortie").innerText = texts[currentLang].sortie + " :";
+      document.getElementById("labelSignature").innerText = texts[currentLang].signature + " :";
+      remplirMois();
+      afficherMois();
+    }
+
+    function remplirMois() {
+      const selectMois = document.getElementById("selectMois");
+      selectMois.innerHTML = "";
+      moisNoms[currentLang].forEach((mois, i) => {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.text = mois;
+        if (i === new Date().getMonth()) opt.selected = true;
+        selectMois.appendChild(opt);
+      });
+    }
+
+    function afficherMois(moisIndex = null, annee = null) {
+      const date = new Date();
+      const mois = moisIndex !== null ? moisNoms[currentLang][moisIndex] : moisNoms[currentLang][date.getMonth()];
+      const year = annee || date.getFullYear();
+      document.getElementById("moisAffiche").innerText = texts[currentLang].mois + mois + " " + year;
+      currentKey = `presenceData-${moisIndex !== null ? moisIndex : date.getMonth()}-${year}`;
+      charger();
+    }
+
+    function remplirAnnees() {
+      const selectAnnee = document.getElementById("selectAnnee");
+      const anneeActuelle = new Date().getFullYear();
+      for (let i = anneeActuelle - 5; i <= anneeActuelle + 5; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.text = i;
+        if (i === anneeActuelle) option.selected = true;
+        selectAnnee.appendChild(option);
+      }
+    }
+
+    function changerMois() {
+      const moisIndex = document.getElementById("selectMois").value;
+      const annee = document.getElementById("selectAnnee").value;
+      afficherMois(moisIndex, annee);
+    }
+
+    signaturePad.addEventListener("mousedown", () => drawing = true);
+    signaturePad.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
+    signaturePad.addEventListener("mousemove", draw);
+
+    function draw(e) {
+      if (!drawing) return;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#000";
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function effacerSignature() {
+      ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+    }
+
+    function sauvegarder() {
+      localStorage.setItem(currentKey, tableBody.innerHTML);
+    }
+
+    function charger() {
+      tableBody.innerHTML = localStorage.getItem(currentKey) || "";
+    }
+
+    function ajouterLigne() {
+      const nom = document.getElementById("nom").value;
+      const prenom = document.getElementById("prenom").value;
+      const dateEntree = document.getElementById("dateEntree").value;
+      const dateSortie = document.getElementById("dateSortie").value;
+      const signatureData = signaturePad.toDataURL();
+
+      if (nom && prenom && dateEntree && dateSortie) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${nom}</td>
+          <td>${prenom}</td>
+          <td>${new Date(dateEntree).toLocaleString()}</td>
+          <td>${new Date(dateSortie).toLocaleString()}</td>
+          <td><img src="${signatureData}" width="80"></td>
+          <td><button onclick="modifierSignature(this)">Modifier</button></td>
+        `;
+        tableBody.appendChild(row);
+        document.getElementById("presenceForm").reset();
+        ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+        sauvegarder();
+      }
+    }
+
+    function modifierSignature(btn) {
+      const row = btn.closest("tr");
+      const img = row.querySelector("td:nth-child(5) img");
+
+      const image = new Image();
+      image.src = img.src;
+      image.onload = function() {
+        ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+        ctx.drawImage(image, 0, 0, signaturePad.width, signaturePad.height);
+      };
+
+      document.getElementById("btnAdd").innerText = "Mettre à jour";
+      document.getElementById("btnAdd").onclick = function() {
+        const newSignatureData = signaturePad.toDataURL();
+        img.src = newSignatureData;
+        ctx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+        sauvegarder();
+        document.getElementById("btnAdd").innerText = texts[currentLang].add;
+        document.getElementById("btnAdd").onclick = ajouterLigne;
+      };
+    }
+
+    async function telechargerPDF(moisTexte = null, contenu = null) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const element = contenu || document.getElementById("presenceTable");
+      const canvas = await html2canvas(element);
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = 190;
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+      doc.text(moisTexte || document.getElementById("moisAffiche").innerText, 10, 10);
+      doc.addImage(imgData, 'PNG', 10, 20, imgWidth, imgHeight);
+      doc.save((moisTexte || "Liste_Presence") + ".pdf");
+    }
+
+    async function telechargerArchives() {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("presenceData-")) {
+          const contenu = document.createElement("table");
+          contenu.innerHTML = "<thead><tr><th>" + texts[currentLang].nom + "</th><th>" + texts[currentLang].prenom + "</th><th>" + texts[currentLang].entree + "</th><th>" + texts[currentLang].sortie + "</th><th>" + texts[currentLang].signature + "</th></tr></thead><tbody>" + localStorage.getItem(key) + "</tbody>";
+          const parts = key.split("-");
+          const moisTexte = `Archive_${moisNoms[currentLang][parts[1]]}_${parts[2]}`;
+          await telechargerPDF(moisTexte, contenu);
+        }
+      }
+    }
+
+    window.onload = () => {
+      remplirAnnees();
+      remplirMois();
+      afficherMois();
+      changerLangue();
+    };
+  </script>
+</body>
+</html>
